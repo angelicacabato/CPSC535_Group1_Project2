@@ -28,7 +28,7 @@ sample graph after algo
 
 # importing other python files for data process and algorithm implementation
 from floyd_warshall import floyd_warshall
-from process_gis_data import process_gis_data
+from process_map_data import process_map_data
 
 
 def main():
@@ -44,7 +44,8 @@ def main():
              [4, 3, 2],
              [4, 4, 0]
              ]
-    floyd_warshall(graph)
+    #floyd_warshall(graph)
+    process_map_data()
 
 if __name__ == "__main__":
     main()
