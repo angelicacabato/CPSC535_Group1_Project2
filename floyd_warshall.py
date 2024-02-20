@@ -7,35 +7,38 @@ CPSC 535: Advanced Algorithms (Spring 2024)
 
 """
 # Reference: https://www.programiz.com/dsa/floyd-warshall-algorithm
-
 import numpy as np
 
-def floyd_warshall(graph):
-    # get unique vertices
-    vertices = list(set([edge[0] for edge in graph]))
-    num_vertices = len(vertices)
-    # print("vertices are: ", vertices)
-
+def floyd_warshall(graph, index_mapping):
+    num_vertices = len(graph.nodes)
     # initialize graph
-    dist = np.matrix(np.ones((num_vertices, num_vertices)) * np.inf)
-    print(dist)
+    dist = np.full((num_vertices, num_vertices), np.inf)
+    np.fill_diagonal(dist, 0)
 
-    # update matrix with vertices and edges
-    for row in graph:
-        u = row[0] - 1  # start_vertex
-        v = row[1] - 1  # end_vertex
-        weight = row[2]
-        dist[u, v] = weight
+    # print(f"number of nodes {num_vertices}")
+    edges_with_attributes = graph.edges(data=True)
+    for edge in edges_with_attributes:
+        i, j, attributes = edge # i, j are original index
+        length = attributes.get('length', np.inf)
+        index_mapped_i, index_mapped_j = index_mapping[i], index_mapping[j]
+        dist[index_mapped_i, index_mapped_j] = length
 
-    print("Distance Matrix Before:\n", dist)
+    print(f"number of nodes {num_vertices}")
+    print("Distance Matrix After:\n", dist)
 
     # iterate over the graph and update the matrix if new shortest path is found
     for k in range(num_vertices):
+        print(f"-----------------------kkkkkkkkkkkkkkkk------------------------: {k}")
         for i in range(num_vertices):
+            if np.isinf(dist[i, k]): # reduced calculation
+                continue
             for j in range(num_vertices):
-                if dist[i, k] + dist[k, j] < dist[i, j]:
-                    dist[i, j] = dist[i, k] + dist[k, j]
-
-    print("Distance Matrix After:\n", dist)
-
-    return dist
+                if np.isinf(dist[k, j]): # reduced calculation
+                    continue
+                new_distance = dist[i, k] + dist[k, j]
+                if np.isinf(dist[i, j]): # reduced calculation
+                    dist[i, j] = new_distance
+                elif new_distance < dist[i, j]:
+                    dist[i, j] = new_distance
+    return dist    
+    
