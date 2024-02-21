@@ -47,17 +47,21 @@ def process_map_data():
 
     # populate dictionary of cafes in Fullerton
     create_cafe_dict(cafe_dict, fullerton_cafes)
-    print(cafe_dict['Starbucks'])
-    print(cafe_dict['7 Leaves Cafe'])
 
-    #example of getting the nearest_node
-    orig = 0
-    orig = ox.nearest_nodes(G, 33.8602673,-117.942165 , return_dist=False)
-    dest = 0
-    dest = ox.nearest_nodes(G, 33.8747911, -117.8900264,return_dist=False)
-    print(orig)
-    print(dest)
+    # map nodeid to indexes
+    create_nodeid_dict(nodes, nearest_node_cafes)
 
+    get_nearest_nodes(G, cafe_dict, nodes, nearest_node_cafes)
+
+
+    # testing shortest path
+    orig = 2325177846
+    dest = 5197254171
+    # compared with the built-in lib
+    route = ox.shortest_path(G, orig, dest, weight="length")
+    print(f"original shortest path library: {route}")
+    #fig, ax = ox.plot_graph_route(G, route, route_color='r',
+    # route_linewidth=6, node_size=0, bgcolor='k')
 
     """
     # create an dictionary to convert index (original_index, convert_index)
@@ -72,7 +76,7 @@ def process_map_data():
 
     print(type(index_mapping))
     shortest_paths = get_shortest_paths(G, dist)
-
+    
     # Example using built it shortest path function
     origin = 414535257
     dest = 1850729215
@@ -80,21 +84,53 @@ def process_map_data():
     #original_shortest_path = get_shortest_path(origin, dest, shortest_paths)
     #print(f"original shortest path: {original_shortest_path}")
 
-    fig, ax = ox.plot_graph_route(G, route, route_color='r', route_linewidth=6,
-                                  node_size=0, bgcolor='k')
+    # compared with the built-in lib
+    route = ox.shortest_path(G, origin, dest, weight="length")
+    print(f"original shortest path library: {route}")
+
+    #fig, ax = ox.plot_graph_route(G, original_shortest_path, route_color='r',
+                                 # route_linewidth=6, node_size=0, bgcolor='k')
     plt.show()
-"""
+    """
     return None
 
-def nearest_node_cafes(nodes, cafe_dict):
+################## Helper Functions ################################
+
+def get_nearest_nodes(G, cafe_dict, nodes, nearest_node_cafes):
+    # print nearest nodes - x and y must be flipped for call to work
+    nodes_to_keep = []
+    nodes_to_keep_id = []
+    for cafe_name, cafe_info in cafe_dict.items():
+        Y = cafe_info[1]
+        X = cafe_info[2]
+        nearest_node = ox.nearest_nodes(G, X, Y,
+                                        return_dist=False)
+        nodes_to_keep.append(nearest_node)
+        print(f"Nearest node to {cafe_name}: {nearest_node}")
+
+    for id in nodes_to_keep:
+        if id in nearest_node_cafes:
+            nodes_to_keep_id.append(nearest_node_cafes[id])
+    #print(len(nodes_to_keep_id))
+
+     # Create a new graph with only the nodes and edges we need - not sure
+    # about this
+    updated_G = nx.Graph()
+    updated_G.add_nodes_from(nodes_to_keep)
+    updated_G.add_edges_from([(u, v) for u, v in G.edges() if u in nodes_to_keep and v in nodes_to_keep])
+    print(len(updated_G.edges))
+
+    return
+
+def create_nodeid_dict(nodes, nearest_node_cafes):
   num_vertices = len(nodes)
 
   for i in range(num_vertices):
     nodeid = nodes.iloc[i].name
     idx = i
-    nodeid_dict[nodeid] = idx
+    nearest_node_cafes[nodeid] = idx
 
-  return
+  return nearest_node_cafes
 
 # populates cafe_dict structure
 def create_cafe_dict(cafe_dict, fullerton_cafes):
@@ -122,7 +158,6 @@ def create_cafe_dict(cafe_dict, fullerton_cafes):
         Y = coordinates[0][0]
         X = coordinates[0][1]
         cafe_dict[key] = [id, X, Y]
-
 
     return cafe_dict
 
