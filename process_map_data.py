@@ -23,140 +23,150 @@ import os
 import pandas as pd
 import shapely
 from shapely.geometry import Point, Polygon
+from geopy.geocoders import Nominatim
+import math
+import matplotlib.pyplot as plt
 
 index_mapping = {}
 dist = []
+final_dist = []
 cafe_dict = {}
-nearest_node_cafes = {} # Node osmid : idx for shortest path matrix
 updated_nodes = []
 updated_edges = []
+G = []
+next = []
+build_coffe_graph = []
 
 def process_map_data():
     ####Open Street Map Code###
     # pull map data of Fullerton, CA
+    global G
     place = {"city": "Fullerton", "state": "California", "country": "USA"}
     G = ox.graph_from_place(place, network_type="drive", truncate_by_edge=True)
 
-    nodes, edges = ox.graph_to_gdfs(G)
+    # Fetch features (geometries) for cafes in the specified place
+    cafes_geometries = ox.features_from_place(place, tags={"amenity": ["cafe", "coffee_shop"]})
+    # Get the coffe nodes in G
+    cafe_nodes = []
+    my_dict = dict() # restore name of osmID node
+    for cafe_geometry in cafes_geometries.itertuples():
+        cafe_name = getattr(cafe_geometry, 'name', None)
+        centroid_x, centroid_y = cafe_geometry.geometry.centroid.xy
+        nearest_node = ox.distance.nearest_nodes(G, centroid_x[0], centroid_y[0])
+        if not pd.isna(cafe_name):
+            cafe_nodes.append(nearest_node) # osmId
+            my_dict[nearest_node] = cafe_name
 
-    # get building information
-    fullerton_cafes = ox.features_from_place(place,
-                                                 tags={"amenity": "cafe"})
+    # Create a temporary graph containing only the cafe nodes and their edges
+    cafe_subgraph = G.subgraph(cafe_nodes)
+    #printCoffeLocationInfo(cafe_subgraph, my_dict)
+    initializeDistMatrix(cafe_subgraph, G)
 
-    G_simplify = simplify_original_graph(G)
+# collect distance data for all coffe locations
+def initializeDistMatrix(cafe_subgraph, G):
+    global index_mapping, next
+    global final_dist, build_coffe_graph
+    index_mapping = {convert_index: i for i, convert_index in enumerate(cafe_subgraph.nodes)} # osmId, matrix_id
+    swapped_index_mapping = {value: key for key, value in index_mapping.items()} # matrix_id, osmId
+    num_vertices = len(cafe_subgraph.nodes)
+    dist = [[np.inf] * num_vertices for _ in range(num_vertices)]
+    next = [[-1] * num_vertices for _ in range(num_vertices)]
+    for i in range(num_vertices):
+        dist[i][i] = 0 # Set diagonal elements to 0
 
-    # populate dictionary of cafes in Fullerton
-    create_cafe_dict(cafe_dict, fullerton_cafes)
-    print(cafe_dict['Starbucks'])
-    print(cafe_dict['7 Leaves Cafe'])
+    for row in range(num_vertices):
+        origin_source = swapped_index_mapping[row] # osmid
+        for col in range(num_vertices):
+            origin_dest = swapped_index_mapping[col] # osmid
+            shortest_path_len = nx.shortest_path_length(G, origin_source, origin_dest, weight='length')
+            dist[row][col] = shortest_path_len
+            next[row][col] = col
 
-    #example of getting the nearest_node
-    orig = 0
-    orig = ox.nearest_nodes(G, 33.8602673,-117.942165 , return_dist=False)
-    dest = 0
-    dest = ox.nearest_nodes(G, 33.8747911, -117.8900264,return_dist=False)
-    print(orig)
-    print(dest)
+    #printMatrix(dist, num_vertices)
+    build_coffe_graph = buildgraphBasedonInitialDist(dist)
+    print(f"coffe graph ", build_coffe_graph)
+    final_dist, next = floyd_warshall(build_coffe_graph, next, index_mapping)
+    # nx.draw(build_graph, with_labels=True, font_weight='bold', arrows=True)
+    # plt.show()
 
-
-    """
-    # create an dictionary to convert index (original_index, convert_index)
-    index_mapping = {convert_index: i for i, convert_index in enumerate(G.nodes)}
-    file_path = "D://dist.npy" # no need to re-run algorithm except any special requests
-
-    if os.path.exists(file_path):
-        dist = np.load(file_path)
-    else:
-        dist = floyd_warshall(G, index_mapping)
-        np.save(file_path, dist)
-
-    print(type(index_mapping))
-    shortest_paths = get_shortest_paths(G, dist)
-
-    # Example using built it shortest path function
-    origin = 414535257
-    dest = 1850729215
-
-    #original_shortest_path = get_shortest_path(origin, dest, shortest_paths)
-    #print(f"original shortest path: {original_shortest_path}")
-
-    fig, ax = ox.plot_graph_route(G, route, route_color='r', route_linewidth=6,
-                                  node_size=0, bgcolor='k')
-    plt.show()
-"""
-    return None
-
-def nearest_node_cafes(nodes, cafe_dict):
-  num_vertices = len(nodes)
-
-  for i in range(num_vertices):
-    nodeid = nodes.iloc[i].name
-    idx = i
-    nodeid_dict[nodeid] = idx
-
-  return
-
-# populates cafe_dict structure
-def create_cafe_dict(cafe_dict, fullerton_cafes):
-    num_cafes = len(fullerton_cafes)
-
-    for i in range(num_cafes):
-        name = fullerton_cafes.iloc[i]['name']
-        if not pd.isna(name):  # Ignoring features that do not have a name
-            osmid = fullerton_cafes.iloc[i].name[1]
-            coordinates = fullerton_cafes.iloc[i]['geometry']  # get coordinates
-            if type(coordinates) == shapely.geometry.polygon.Polygon: #
-                # Ignoring features that have multiple locations
-                continue
-            else:
-                cafe_dict[name] = [osmid, coordinates]
-        else:
-            continue
-
-    # extract coordinates and repopulate dictionary
-    for key in cafe_dict:
-        id = cafe_dict[key][0]
-        coordinates = cafe_dict[key][1]  # get coordinates
-        coordinates = list(
-            coordinates.coords)  # get coordinates Geometry is backwards
-        Y = coordinates[0][0]
-        X = coordinates[0][1]
-        cafe_dict[key] = [id, X, Y]
-
-
-    return cafe_dict
-
-def get_shortest_paths(G, dist):
-    num_nodes = len(G.nodes)
-    shortest_paths = {}
-    for i in range(num_nodes):
-        shortest_paths[i] = {}
-        for j in range(num_nodes):
-            shortest_paths[i][j] = dist[i, j]
-    return shortest_paths
-
-# need to re-check
-def get_shortest_path(orgin, dest, shortest_paths):
+def buildgraphBasedonInitialDist(dist):
     global index_mapping
-    mapped_orig, mapped_dest = index_mapping[orgin], index_mapping[dest]
-    shortest_path_length = shortest_paths[mapped_orig][mapped_dest]
-    if np.isinf(shortest_path_length):
-        return None
+    swapped_index_mapping = {value: key for key, value in index_mapping.items()} # matrix_id, osmId
+    print(f"index_mapping {index_mapping}")
+    new_G = nx.DiGraph()
+    # Add nodes with their corresponding attributes
+    for index, node_id in index_mapping.items():
+        new_G.add_node(swapped_index_mapping[node_id]) # add osmID
+
+    # Add edges with their distances
+    for i, row in enumerate(dist):
+        for j, distance in enumerate(row):
+            if i != j and distance != float('inf'):
+                new_G.add_edge(swapped_index_mapping[i], swapped_index_mapping[j], length=distance)
+    return new_G
+
+def printMatrix(dist, num_vertices):
+    for row in range(num_vertices):
+        for col in range(num_vertices):
+            print(f"row {row}, col {col}, len {dist[row][col]}")
+
+# print coffe location's information
+def printCoffeLocationInfo(cafe_subgraph, my_dict):
+    # Create a geolocator instance
+    geolocator = Nominatim(user_agent="my_geocoder")
+    #Print node data and all edges for each node in cafe_subgraph
+    for node in cafe_subgraph.nodes(data=True):
+        node_id, node_data = node
+        node_data.name = my_dict[node_id]
+        location = geolocator.reverse((node_data['y'], node_data['x']), language='en')
+        print(f"Node ID: {node_id}")
+        print(f"Node Data: {node_data}")
+        print(f"name {my_dict[node_id]}")
+        print(location.address)
+        # Print all edges for the current node
+        for edge in cafe_subgraph.edges(node_id, data=True):
+            print(f"Edge: {edge}")
+        print("\n")
+
+def get_shortest_path_builtin(osmOrginID, osmDestID):
+    global G, index_mapping
+    shortest_path = nx.shortest_path(G, osmOrginID, osmDestID, weight='length')
+    ox.plot_graph_route(G, shortest_path, route_color='r', route_linewidth=6, node_size=0, bgcolor='k')
+
+def get_shortest_path(osmOrginID, osmDestID):
+    global index_mapping, G, build_coffe_graph
+    swapped_index_mapping = {value: key for key, value in index_mapping.items()} # matrix_id, osmId
+    global final_dist, next
+    start = index_mapping[osmOrginID]
+    end = index_mapping[osmDestID]
+
+    print(f"start ", start)
+    print(f"end ", end)
+
+    if (next[start][end] == -1):
+        return {}
     
-    path = [dest]
-    while dest != orgin:
-        for node, matrix_index in index_mapping.items():
-            if dist[mapped_orig, matrix_index] + dist[matrix_index, mapped_dest] == shortest_path_length and dist[mapped_orig, matrix_index] != np.inf:
-                path.insert(0, node)
-                dest = node
-                break
+    path = [start]
+    while (start != end):
+        start = next[start][end]
+        path.append(start)
 
-    return path
+    shortest_path_nodes = [swapped_index_mapping[index] for index in path]
+    print(f"shortestpath ", shortest_path_nodes)
+    # ox.plot_graph_route(build_coffe_graph, shortest_path_nodes, route_color='r', route_linewidth=6, node_size=0, bgcolor='k')
+    # return path
 
-# convert string input from UI then convert to numeric value
-def convertLocation2Numeric(source, destination):
-    return source, destination
+def updateDictforBlockages(blockages):
+    global index_mapping
+    global final_dist, next
+    simulate_blockages(blockages, index_mapping, final_dist)
+    # rerun floyd-warshall algo to update dist matrix
+    final_dist = floyd_warshall(final_dist, next)
+    return
 
-# based on the list to simplify the original graph
-def simplify_original_graph(graph):
-    return graph
+def simulate_blockages(blockages, index_mapping, final_dist):
+    for blockage in blockages:
+        source, destination = blockage
+        source_index = index_mapping[source]
+        dest_index = index_mapping[destination]
+        final_dist[source_index][dest_index] = float('inf')  # simulate blockage
