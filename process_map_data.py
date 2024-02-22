@@ -199,12 +199,11 @@ def updateDictforBlockages(blockages):
     global index_mapping
     global final_dist, next
     simulate_blockages(blockages, index_mapping)
-    # rerun floyd-warshall algo to update dist matrix
-    final_dist, next = floyd_warshallblockages(final_dist, next)
+
     return
 
 def simulate_blockages(blockages, index_mapping):
-    global final_dist
+    global final_dist, next
     global shortest_path_blockages
     for blockage in blockages:
         source, destination = blockage #osmID
@@ -216,8 +215,11 @@ def simulate_blockages(blockages, index_mapping):
 
         final_dist[source_index][dest_index] = float('inf')  # simulate blockage
         shortest_path_blockages = nx.shortest_path(G, source, destination, weight='length')
-        ox.plot_graph_route(G, shortest_path_blockages, route_color='r', route_linewidth=6, node_size=0, bgcolor='k')
+        # ox.plot_graph_route(G, shortest_path_blockages, route_color='r', route_linewidth=6, node_size=0, bgcolor='k')
         # print(f"shortest_path blockages {shortest_path_blockages}")
         # for osm in shortest_path:
         #     dest_index = index_mapping[osm]
         #     final_dist[source_index][dest_index] = float('inf')  # simulate blockage
+
+    # rerun floyd-warshall algo to update dist matrix
+    final_dist, next = floyd_warshallblockages(final_dist, next)
