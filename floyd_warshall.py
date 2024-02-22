@@ -41,7 +41,7 @@ def floyd_warshall(graph, next, index_mapping):
     return dist, next    
 
 # used for updating distance matrix caused by blockages
-def floyd_warshall(dist, next):
+def floyd_warshallblockages(dist, next):
     num_vertices = len(dist)
     for k in range(num_vertices):
         for i in range(num_vertices):

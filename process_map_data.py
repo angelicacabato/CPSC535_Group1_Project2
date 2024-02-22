@@ -37,6 +37,15 @@ G = []
 next = []
 build_coffe_graph = []
 
+
+def buildmap():
+    # Define the place you are interested in (you can customize this)
+    place = "Fullerton, California, USA"
+    # Fetch the road network data using OSMnx
+    G = ox.graph_from_place(place, network_type="drive", simplify=True)
+    num_vertices = len(G.nodes)
+    print(f"num vertices ", num_vertices)
+
 def process_map_data():
     ####Open Street Map Code###
     # pull map data of Fullerton, CA
@@ -153,8 +162,19 @@ def get_shortest_path(osmOrginID, osmDestID):
 
     shortest_path_nodes = [swapped_index_mapping[index] for index in path]
     print(f"shortestpath ", shortest_path_nodes)
-    # ox.plot_graph_route(build_coffe_graph, shortest_path_nodes, route_color='r', route_linewidth=6, node_size=0, bgcolor='k')
-    # return path
+
+    # recall the shortest path based on big graph
+    final_path = []
+    for index in range(len(shortest_path_nodes) - 1):
+        startOSM = shortest_path_nodes[index]
+        endOSM = shortest_path_nodes[index+1]
+        shortest_path = nx.shortest_path(G, startOSM, endOSM, weight='length')
+        final_path += shortest_path
+
+    final_path = list(dict.fromkeys(final_path))
+    print(f"shortest_path after recall from big graph", final_path)
+    ox.plot_graph_route(G, final_path, route_color='r', route_linewidth=6, node_size=0, bgcolor='k')
+    return final_path
 
 def updateDictforBlockages(blockages):
     global index_mapping

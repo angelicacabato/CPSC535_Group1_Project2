@@ -28,7 +28,7 @@ sample graph after algo
 
 # importing other python files for data process and algorithm implementation
 from floyd_warshall import floyd_warshall
-from process_map_data import get_shortest_path, get_shortest_path_builtin, process_map_data, updateDictforBlockages
+from process_map_data import buildmap, get_shortest_path, get_shortest_path_builtin, process_map_data, updateDictforBlockages
 
 
 def main():
@@ -49,8 +49,9 @@ def main():
     # blockages = [(4704306820, 122562954)]
     # updateDictforBlockages(4704306820, 122562954)
     # get_shortest_path_builtin(4704306820, 122562954)
-    get_shortest_path(4704306820, 122728319)
-
+    get_shortest_path(4704306820, 1853024624)
+    #buildmap()
+    
 if __name__ == "__main__":
     main()
 
