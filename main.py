@@ -46,11 +46,13 @@ def main():
              ]
     #floyd_warshall(graph)
     process_map_data()
-    # blockages = [(4704306820, 122562954)]
-    # updateDictforBlockages(4704306820, 122562954)
-    # get_shortest_path_builtin(4704306820, 122562954)
+    #get_shortest_path_builtin(4704306820, 1853024624)
+    #get_shortest_path(4704306820, 1853024624)
+
+    blockages = [(4704306820, 1391863431)]
+    updateDictforBlockages(blockages)
     get_shortest_path(4704306820, 1853024624)
-    #buildmap()
+    # buildmap()
     
 if __name__ == "__main__":
     main()

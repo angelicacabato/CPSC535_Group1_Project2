@@ -28,6 +28,7 @@ def floyd_warshall(graph, next, index_mapping):
             next[index_mapped_i][index_mapped_j] = -1
         else:
             next[index_mapped_i][index_mapped_j] = index_mapped_j
+            
     # print(f"number of nodes {num_vertices}")
     # print("Distance Matrix :\n", dist)
     for k in range(num_vertices):
@@ -43,6 +44,9 @@ def floyd_warshall(graph, next, index_mapping):
 # used for updating distance matrix caused by blockages
 def floyd_warshallblockages(dist, next):
     num_vertices = len(dist)
+
+    checkInf(dist)
+
     for k in range(num_vertices):
         for i in range(num_vertices):
             for j in range(num_vertices):

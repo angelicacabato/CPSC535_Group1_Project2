@@ -189,7 +189,6 @@ def get_shortest_path(osmOrginID, osmDestID):
         final_path += shortest_path
     
     final_path = list(dict.fromkeys(final_path))
-
     print(f"shortest_path after recall from big graph", final_path)
     #ox.plot_graph_route(G, shortest_path_blockages, route_color='r', route_linewidth=6, node_size=0, bgcolor='k')
     ox.plot_graph_route(G, final_path, route_color='r', route_linewidth=6, node_size=0, bgcolor='k')
@@ -198,13 +197,12 @@ def get_shortest_path(osmOrginID, osmDestID):
 def updateDictforBlockages(blockages):
     global index_mapping
     global final_dist, next
-    simulate_blockages(blockages, index_mapping)
+    simulate_blockages(blockages, index_mapping, final_dist)
     # rerun floyd-warshall algo to update dist matrix
     final_dist, next = floyd_warshallblockages(final_dist, next)
     return
 
-def simulate_blockages(blockages, index_mapping):
-    global final_dist
+def simulate_blockages(blockages, index_mapping, final_dist):
     global shortest_path_blockages
     for blockage in blockages:
         source, destination = blockage #osmID
@@ -215,9 +213,9 @@ def simulate_blockages(blockages, index_mapping):
         print(f"dest_index {dest_index}")
 
         final_dist[source_index][dest_index] = float('inf')  # simulate blockage
+
         shortest_path_blockages = nx.shortest_path(G, source, destination, weight='length')
-        ox.plot_graph_route(G, shortest_path_blockages, route_color='r', route_linewidth=6, node_size=0, bgcolor='k')
-        # print(f"shortest_path blockages {shortest_path_blockages}")
+        print(f"shortest_path blockages {shortest_path_blockages}")
         # for osm in shortest_path:
         #     dest_index = index_mapping[osm]
         #     final_dist[source_index][dest_index] = float('inf')  # simulate blockage
