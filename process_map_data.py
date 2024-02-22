@@ -195,13 +195,84 @@ def get_shortest_path(osmOrginID, osmDestID):
     ox.plot_graph_route(G, final_path, route_color='r', route_linewidth=6, node_size=0, bgcolor='k')
     return final_path
 
+def getpath(startindex, endindex, nextmatrix):
+    if next_matrix[start_index][end_index] == -1:
+        return []
+    path = [start_index]
+    while start_index != end_index:
+        start_index = next_matrix[start_index][end_index]
+        path.append(start_index)
+    return path
+
+def simulate_blockages(blockages, index_mapping):
+    global final_dist, next
+    for blockage in blockages:
+        source, destination = blockage  # osmID
+        source_index = index_mapping[source]
+        dest_index = index_mapping[destination]
+
+        # Simulate blockage by setting the distance to infinity
+        final_dist[source_index][dest_index] = float('inf')
+        final_dist[dest_index][source_index] = float('inf')  # If undirected graph
+
+    # Re-run Floyd-Warshall to update the distance matrix with blockages
+    final_dist, next = floyd_warshallblockages(final_dist, next)
+
+def draw_updated_path(G, start_osm_id, end_osm_id, index_mapping, next_matrix):
+    # Get the indexes for the start and end nodes
+    start_index = index_mapping[start_osm_id]
+    end_index = index_mapping[end_osm_id]
+
+    # Retrieve the path using the updated 'next' matrix
+    path_indexes = get_path(start_index, end_index, next_matrix)
+    osm_path = [swapped_index_mapping[index] for index in path_indexes]  # Convert indexes back to osm IDs
+
+    # Draw the path on the graph
+    fig, ax = ox.plot_graph_route(G, osm_path, route_color='r', route_linewidth=6, node_size=0)
+
+def getpath(startindex, endindex, nextmatrix):
+    if next_matrix[start_index][end_index] == -1:
+        return []
+    path = [start_index]
+    while start_index != end_index:
+        start_index = next_matrix[start_index][end_index]
+        path.append(start_index)
+    return path
+
+def simulate_blockages(blockages, index_mapping):
+    global final_dist, next
+    for blockage in blockages:
+        source, destination = blockage  # osmID
+        source_index = index_mapping[source]
+        dest_index = index_mapping[destination]
+
+        # Simulate blockage by setting the distance to infinity
+        final_dist[source_index][dest_index] = float('inf')
+        final_dist[dest_index][source_index] = float('inf')  # If undirected graph
+
+    # Re-run Floyd-Warshall to update the distance matrix with blockages
+    final_dist, next = floyd_warshallblockages(final_dist, next)
+
+def draw_updated_path(G, start_osm_id, end_osm_id, index_mapping, next_matrix):
+    # Get the indexes for the start and end nodes
+    start_index = index_mapping[start_osm_id]
+    end_index = index_mapping[end_osm_id]
+
+    # Retrieve the path using the updated 'next' matrix
+    path_indexes = get_path(start_index, end_index, next_matrix)
+    osm_path = [swapped_index_mapping[index] for index in path_indexes]  # Convert indexes back to osm IDs
+
+    # Draw the path on the graph
+    fig, ax = ox.plot_graph_route(G, osm_path, route_color='r', route_linewidth=6, node_size=0)
+
+
 def updateDictforBlockages(blockages):
     global index_mapping
     global final_dist, next
     simulate_blockages(blockages, index_mapping)
 
     return
-
+"""
 def simulate_blockages(blockages, index_mapping):
     global final_dist, next
     global shortest_path_blockages
@@ -215,7 +286,7 @@ def simulate_blockages(blockages, index_mapping):
 
         final_dist[source_index][dest_index] = float('inf')  # simulate blockage
         shortest_path_blockages = nx.shortest_path(G, source, destination, weight='length')
-        # ox.plot_graph_route(G, shortest_path_blockages, route_color='r', route_linewidth=6, node_size=0, bgcolor='k')
+        ox.plot_graph_route(G, shortest_path_blockages, route_color='r', route_linewidth=6, node_size=0, bgcolor='k')
         # print(f"shortest_path blockages {shortest_path_blockages}")
         # for osm in shortest_path:
         #     dest_index = index_mapping[osm]
@@ -223,3 +294,10 @@ def simulate_blockages(blockages, index_mapping):
 
     # rerun floyd-warshall algo to update dist matrix
     final_dist, next = floyd_warshallblockages(final_dist, next)
+
+"""
+
+def implement_blckage(blockage_value, index_mapping):
+    if blockage_value == True:
+        print("")
+    return

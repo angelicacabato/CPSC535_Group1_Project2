@@ -28,7 +28,10 @@ sample graph after algo
 
 # importing other python files for data process and algorithm implementation
 from floyd_warshall import floyd_warshall
-from process_map_data import buildmap, get_shortest_path, get_shortest_path_builtin, process_map_data, updateDictforBlockages
+from process_map_data import (buildmap, get_shortest_path,
+                              get_shortest_path_builtin, process_map_data,
+                              updateDictforBlockages, simulate_blockages,
+                              draw_updated_path, index_mapping)
 
 
 def main():
@@ -44,6 +47,7 @@ def main():
              [4, 3, 2],
              [4, 4, 0]
              ]
+    """
     #floyd_warshall(graph)
     process_map_data()
     #get_shortest_path_builtin(4704306820, 1853024624)
@@ -53,7 +57,16 @@ def main():
     updateDictforBlockages(blockages)
     get_shortest_path(4704306820, 1853024624)
     # buildmap()
-    
+    """
+    process_map_data()
+    source_osm_id = 4704306820  # Start node OSM ID
+    dest_osm_id = 1853024624  # End node OSM ID
+    blockages = [(source_osm_id, dest_osm_id)]  # Replace with actual osm IDs
+    simulate_blockages(blockages, index_mapping)
+    start_osm_id = 122562954 # Start node OSM ID
+    end_osm_id = 8816967697 # End node OSM ID
+    draw_updated_path(G, start_osm_id, end_osm_id, index_mapping, next)
+
 if __name__ == "__main__":
     main()
 
