@@ -6,47 +6,50 @@ Dr. Shah
 CPSC 535: Advanced Algorithms (Spring 2024)
 
 """
-
-"""
-sample graph before algo
-
-    1 2 3 4
-1 [ 0 3 inf 5 ]
-2 [ 2 0 inf 4 ]
-3 [ inf 1 0 inf ]
-4 [ inf inf 2 0 ]
-
-sample graph after algo
-
-    1 2 3 4
-1 [ 0 3 7 5 ]
-2 [ 2 0 6 4 ]
-3 [ 3 1 0 5 ]
-4 [ 5 3 2 0 ]
-
-"""
-
 # importing other python files for data process and algorithm implementation
+import networkx as nx
+import osmnx as ox
+import matplotlib.pyplot as plt
 from floyd_warshall import floyd_warshall
 from process_map_data import (buildmap, get_shortest_path,
                               get_shortest_path_builtin, process_map_data,
                               updateDictforBlockages, simulate_blockages,
-                              draw_updated_path, index_mapping)
+                              implement_blockage)
+
+name_to_node_dict = {
+    "Pilgrim's Coffee Shop": 4704306820,
+    "Santa Fe Express Cafe": 1391863431,
+    "Jay's Coffee Waffles & More": 122562954,
+    "Kawaii Boba": 2243492748,
+    "Starbucks": 2243492752,
+    "Intentional Coffee": 67543057,
+    "Starbucks": 8816967697,
+    "McClain's Coffeehouse": 122836756,
+    "Library Cafe": 5197254171,
+    "Philz Coffee": 122757283,
+    "The Gastronome": 414550180,
+    "Starbucks": 3583764518,
+    "Starbucks": 1931779371,
+    "Max Bloom's Cafe Noir": 122925745,
+    "Sharetea": 4083327025,
+    "Starbucks": 2243418547,
+    "The Coffee Bean & Tea Leaf": 122817213,
+    "Starbucks": 2574034240,
+    "Donut Star": 122628045,
+    "525 Coffee Co": 122731859,
+    "Veronese Gallery and Cafe": 122628569,
+    "Coffee Code": 122868068,
+    "The Smoking Tiger Coffee and Bread": 2243433066,
+    "Starbucks": 67543020,
+    "Starbucks": 1853024624,
+    "Made Coffee": 2325177846,
+    "Eggspresso": 122900858,
+    "Dripp": 122757243,
+    "The Stinger Cafe": 122728319,
+}
 
 
 def main():
-    # format is [start, end, weight]
-    graph = [[1, 1, 0],
-             [1, 2, 3],
-             [1, 4, 5],
-             [2, 1, 2],
-             [2, 2, 0],
-             [2, 4, 4],
-             [3, 2, 1],
-             [3, 3, 0],
-             [4, 3, 2],
-             [4, 4, 0]
-             ]
     """
     #floyd_warshall(graph)
     process_map_data()
@@ -58,15 +61,47 @@ def main():
     get_shortest_path(4704306820, 1853024624)
     # buildmap()
     """
-    process_map_data()
-    source_osm_id = 4704306820  # Start node OSM ID
-    dest_osm_id = 1853024624  # End node OSM ID
-    blockages = [(source_osm_id, dest_osm_id)]  # Replace with actual osm IDs
-    simulate_blockages(blockages, index_mapping)
-    start_osm_id = 122562954 # Start node OSM ID
-    end_osm_id = 8816967697 # End node OSM ID
-    draw_updated_path(G, start_osm_id, end_osm_id, index_mapping, next)
+    G = process_map_data()  # processes the Fullerton's map data
+
+    start_user_input = "Pilgrim's Coffee Shop"  #4704306820,
+    end_user_input = "Starbucks"    #1853024624
+
+    # Testing different input
+    #start_user_input = "Kawaii Boba" # 2243492748
+    #end_user_input = "Sharetea" # 4083327025
+
+    source_osm_id = name_to_node_dict.get(start_user_input) # Start node OSM ID coverted from input
+    dest_osm_id = name_to_node_dict.get(end_user_input)  # End node OSM ID coverted from input
+
+    # Test name to node matching
+    print(f"{start_user_input}'s node ID is {source_osm_id}")
+    print(f"{end_user_input}'s node ID is {dest_osm_id}")
+
+    cur_shortest_path = get_shortest_path(source_osm_id, dest_osm_id)
+    print(f"The route of the shortest path is {cur_shortest_path}")
+
+    # visualize cur_shortest_path
+    fig, ax = ox.plot_graph_route(G, cur_shortest_path, route_color='b',
+                                  route_linewidth=6, node_size=0)
+
+    # If button "Report blockage on route, give new route" is pushed,
+    # run blockage function
+    blockage_value = True  # based on if user presses the button
+
+    updated_path_after_blockage = None
+    if blockage_value:
+        updated_path_after_blockage = implement_blockage(source_osm_id,
+                                                         dest_osm_id,
+                                                         cur_shortest_path)
+        if updated_path_after_blockage == None:
+            print("No possible path between locations due to blockage.")
+        else:
+            print(f"Updated route after blockage is"
+                  f" {updated_path_after_blockage}")
+            # Visualize new shortest path after blockage
+            fig, ax = ox.plot_graph_route(G, updated_path_after_blockage,
+                                          route_color='r', route_linewidth=6,
+                                          node_size=0)
 
 if __name__ == "__main__":
     main()
-
