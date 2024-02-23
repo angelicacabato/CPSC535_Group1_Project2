@@ -26,6 +26,7 @@ from shapely.geometry import Point, Polygon
 from geopy.geocoders import Nominatim
 import math
 import matplotlib.pyplot as plt
+import random
 
 index_mapping = {}
 dist = []
@@ -57,7 +58,6 @@ def buildmap():
     
 
 def process_map_data():
-    ####Open Street Map Code###
     # pull map data of Fullerton, CA
     global G
     place = {"city": "Fullerton", "state": "California", "country": "USA"}
@@ -78,7 +78,6 @@ def process_map_data():
 
     # Create a temporary graph containing only the cafe nodes and their edges
     cafe_subgraph = G.subgraph(cafe_nodes)
-    #printCoffeLocationInfo(cafe_subgraph, my_dict)
     initializeDistMatrix(cafe_subgraph, G)
 
     return G
@@ -288,13 +287,9 @@ def implement_blockage(source_osm_id, dest_osm_id, cur_shortest_path):
     # return another route
     updated_path_after_blockage = None
 
-    # reversing to get the most different list
-    for route in reversed(possible_routes):
-        if len(route) > len(cur_shortest_path):
-            updated_path_after_blockage = route
-            break
-        else:
-            updated_path_after_blockage = possible_routes[len(possible_routes)]
-            continue
+    rand_path_index = random.randint(0, len(possible_routes) - 1)
+    rand_path = possible_routes[rand_path_index]
+    updated_path_after_blockage = rand_path
+    #print(f'Updated path {rand_path_index}:', updated_path_after_blockage)
 
     return updated_path_after_blockage
