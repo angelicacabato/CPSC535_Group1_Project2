@@ -31,35 +31,55 @@ nearest_node_cafes = {} # Node osmid : idx for shortest path matrix
 updated_nodes = []
 updated_edges = []
 
-def process_map_data():
+def process_map_data(source_location=None, destination_location=None,fetch_cafes_only=False,
+                     blockages=None, cafeLocations=None):
     ####Open Street Map Code###
+
+    if blockages is None:
+            blockages = []
+    if cafeLocations is None:
+            cafeLocations = {}
+
     # pull map data of Fullerton, CA
     place = {"city": "Fullerton", "state": "California", "country": "USA"}
     G = ox.graph_from_place(place, network_type="drive", truncate_by_edge=True)
 
-    nodes, edges = ox.graph_to_gdfs(G)
+    # Refresh graph to reflect blockages accurately
+    G = apply_blockages_to_graph(G, blockages, cafeLocations)
 
-    # get building information
-    fullerton_cafes = ox.features_from_place(place,
-                                                 tags={"amenity": "cafe"})
+    if fetch_cafes_only:
 
-    G_simplify = simplify_original_graph(G)
+        fullerton_cafes = ox.features_from_place(place,
+                                                    tags={"amenity": "cafe"})
 
-    # populate dictionary of cafes in Fullerton
-    create_cafe_dict(cafe_dict, fullerton_cafes)
+        G_simplify = simplify_original_graph(G)
+        # populate dictionary of cafes in Fullerton
+        create_cafe_dict(cafe_dict, fullerton_cafes)
+        # Convert cafe_dict to a list format for the frontend
+        cafe_list = [{"name": name, "id": cafe_info[0], "lat": cafe_info[1], "lng": cafe_info[2]} for name, cafe_info in cafe_dict.items()]
+        return None, cafe_list   
+    
+    if source_location and destination_location:
+        nearest_source_node = ox.nearest_nodes(G, source_location[1], source_location[0])
+        nearest_destination_node = ox.nearest_nodes(G, destination_location[1], destination_location[0])
+        route = ox.shortest_path(G, nearest_source_node, nearest_destination_node, weight='length')
+        route_latlon = [(G.nodes[node]['y'], G.nodes[node]['x']) for node in route]
+        return route_latlon
+    
+def apply_blockages_to_graph(G, blockages, cafeLocations):
+    for blockage in blockages:
+        source = cafeLocations.get(blockage[0])
+        destination = cafeLocations.get(blockage[1])
+        if source and destination:
+            source_node = ox.nearest_nodes(G, source[1], source[0])
+            destination_node = ox.nearest_nodes(G, destination[1], destination[0])
+            if G.has_edge(source_node, destination_node):
+                # Increase the weight of the edge significantly
+                G[source_node][destination_node][0]['length'] = 1e9
+            if G.has_edge(destination_node, source_node):
+                G[destination_node][source_node][0]['length'] = 1e9
+    return G
 
-    # map nodeid to indexes
-    create_nodeid_dict(nodes, nearest_node_cafes)
-
-    get_nearest_nodes(G, cafe_dict, nodes, nearest_node_cafes)
-
-
-    # testing shortest path
-    orig = 2325177846
-    dest = 5197254171
-    # compared with the built-in lib
-    route = ox.shortest_path(G, orig, dest, weight="length")
-    print(f"original shortest path library: {route}")
     #fig, ax = ox.plot_graph_route(G, route, route_color='r',
     # route_linewidth=6, node_size=0, bgcolor='k')
 
@@ -89,10 +109,10 @@ def process_map_data():
     print(f"original shortest path library: {route}")
 
     #fig, ax = ox.plot_graph_route(G, original_shortest_path, route_color='r',
-                                 # route_linewidth=6, node_size=0, bgcolor='k')
+                                # route_linewidth=6, node_size=0, bgcolor='k')
     plt.show()
     """
-    return None
+    # return None
 
 ################## Helper Functions ################################
 
@@ -139,7 +159,7 @@ def create_cafe_dict(cafe_dict, fullerton_cafes):
     for i in range(num_cafes):
         name = fullerton_cafes.iloc[i]['name']
         if not pd.isna(name):  # Ignoring features that do not have a name
-            osmid = fullerton_cafes.iloc[i].name[1]
+            osmid = int(fullerton_cafes.iloc[i].name[1])
             coordinates = fullerton_cafes.iloc[i]['geometry']  # get coordinates
             if type(coordinates) == shapely.geometry.polygon.Polygon: #
                 # Ignoring features that have multiple locations
@@ -153,8 +173,8 @@ def create_cafe_dict(cafe_dict, fullerton_cafes):
     for key in cafe_dict:
         id = cafe_dict[key][0]
         coordinates = cafe_dict[key][1]  # get coordinates
-        coordinates = list(
-            coordinates.coords)  # get coordinates Geometry is backwards
+        if isinstance(coordinates, shapely.geometry.point.Point):
+            coordinates = list(coordinates.coords)  # get coordinates Geometry is backwards
         Y = coordinates[0][0]
         X = coordinates[0][1]
         cafe_dict[key] = [id, X, Y]

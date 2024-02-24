@@ -1,53 +1,60 @@
-"""
-GROUP 1: Anunay Amrit, Angelica Cabato, Pranav Vijay Chand, Riya Chapatwala, Sai Satya Jagannadh Doddipatla, Nhat Ho
 
-Dr. Shah
-
-CPSC 535: Advanced Algorithms (Spring 2024)
-
-"""
-
-"""
-sample graph before algo
-
-    1 2 3 4
-1 [ 0 3 inf 5 ]
-2 [ 2 0 inf 4 ]
-3 [ inf 1 0 inf ]
-4 [ inf inf 2 0 ]
-
-sample graph after algo
-
-    1 2 3 4
-1 [ 0 3 7 5 ]
-2 [ 2 0 6 4 ]
-3 [ 3 1 0 5 ]
-4 [ 5 3 2 0 ]
-
-"""
 
 # importing other python files for data process and algorithm implementation
+from flask import Flask, request, jsonify, render_template, render_template, url_for
 from floyd_warshall import floyd_warshall
 from process_map_data import process_map_data
 
+app = Flask(__name__)
+
+cafeLocations = {}
+blockages = []
+
+@app.route('/')
+def index():
+    return render_template('index.html')  
+
+@app.route('/about')
+def about():
+    return render_template('about.html')  
+    
+
+@app.route('/calculate_path', methods=['POST'])
+def calculate_path():
+    data = request.get_json()  # Access the JSON data sent with the request   
+    try:
+        # Use source and destination names to lookup their respective coordinates
+        path = process_map_data(source_location=cafeLocations.get(data['source']), 
+                                destination_location=cafeLocations.get(data['destination']),
+                                blockages=blockages, cafeLocations=cafeLocations)
+        return jsonify({'path': path})
+    except Exception as e:
+        print(f"Error processing path: {e}")
+        return jsonify({'error': 'Failed to calculate path'}), 500
+
+@app.route('/get_cafes', methods=['GET'])
+def get_cafes():
+    global cafeLocations
+    _, cafe_list = process_map_data(fetch_cafes_only=True, blockages=blockages, cafeLocations=cafeLocations)
+    # Populate cafeLocations with the fetched cafes
+    cafeLocations = {cafe['name']: (cafe['lat'], cafe['lng']) for cafe in cafe_list}
+    return jsonify({'cafes': cafe_list})
+
+@app.route('/report_blockage', methods=['POST']) # New endpoint to handle blockage reporting
+def report_blockage():
+    data = request.get_json()
+    new_blockage = (data['source'], data['destination'])
+    if new_blockage not in blockages:
+        blockages.append(new_blockage)
+    return jsonify({'message': 'Blockage reported successfully, calculating new route for you.'}), 200
+
 
 def main():
-    # format is [start, end, weight]
-    graph = [[1, 1, 0],
-             [1, 2, 3],
-             [1, 4, 5],
-             [2, 1, 2],
-             [2, 2, 0],
-             [2, 4, 4],
-             [3, 2, 1],
-             [3, 3, 0],
-             [4, 3, 2],
-             [4, 4, 0]
-             ]
-    #floyd_warshall(graph)
+
     process_map_data()
 
 
 if __name__ == "__main__":
+    app.run(debug=True)
     main()
 
