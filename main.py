@@ -1,21 +1,12 @@
-"""
-GROUP 1: Anunay Amrit, Angelica Cabato, Pranav Vijay Chand, Riya Chapatwala, Sai Satya Jagannadh Doddipatla, Nhat Ho
-
-Dr. Shah
-
-CPSC 535: Advanced Algorithms (Spring 2024)
-
-"""
-# importing other python files for data process and algorithm implementation
+from flask import Flask, jsonify, request, render_template
 import networkx as nx
 import osmnx as ox
-import matplotlib.pyplot as plt
-from floyd_warshall import floyd_warshall
-from process_map_data import (buildmap, get_shortest_path,
-                              get_shortest_path_builtin, process_map_data,
-                              updateDictforBlockages, simulate_blockages,
-                              implement_blockage)
+from process_map_data import (process_map_data, get_shortest_path, implement_blockage)
 
+app = Flask(__name__)
+
+# Global variables
+G = process_map_data()  # Initialize the graph
 name_to_node_dict = {
     "Pilgrim's Coffee Shop": 4704306820,
     "Santa Fe Express Cafe": 1391863431,
@@ -48,59 +39,45 @@ name_to_node_dict = {
     "The Stinger Cafe": 122728319,
 }
 
-def main():
-    """
-    #floyd_warshall(graph)
-    process_map_data()
-    #get_shortest_path_builtin(4704306820, 1853024624)
-    get_shortest_path(4704306820, 1853024624)
+@app.route('/')
+def index():
+    # Render the HTML interface
+    return render_template('index.html')
 
-    blockages = [(122562954, 8816967697)]
-    updateDictforBlockages(blockages)
-    get_shortest_path(4704306820, 1853024624)
-    # buildmap()
-    """
-    G = process_map_data()  # processes the Fullerton's map data
+@app.route('/get_cafes', methods=['GET'])
+def get_cafes():
+    # Return a list of cafes for populating the dropdowns
+    cafes = [{"name": name, "lat": G.nodes[node]["y"], "lng": G.nodes[node]["x"]} for name, node in name_to_node_dict.items()]
+    return jsonify({"cafes": cafes})
 
-    start_user_input = "Pilgrim's Coffee Shop"  #4704306820,
-    end_user_input = "Starbucks"    #1853024624
+@app.route('/calculate_path', methods=['POST'])
+def calculate_path():
+    data = request.json
+    source_name = data['source']
+    destination_name = data['destination']
+    source_node = name_to_node_dict.get(source_name)
+    destination_node = name_to_node_dict.get(destination_name)
 
-    # Testing different input
-    #start_user_input = "Kawaii Boba" # 2243492748
-    #end_user_input = "Sharetea" # 4083327025
+    # Always calculate the shortest path first
+    shortest_path = get_shortest_path(source_node, destination_node)
 
-    source_osm_id = name_to_node_dict.get(start_user_input) # Start node OSM ID coverted from input
-    dest_osm_id = name_to_node_dict.get(end_user_input)  # End node OSM ID coverted from input
+    # Check for blockage status from the request
+    blockage = data.get('blockage', False)
 
-    # Test name to node matching
-    print(f"{start_user_input}'s node ID is {source_osm_id}")
-    print(f"{end_user_input}'s node ID is {dest_osm_id}")
+    if not blockage:
+        # If there's no blockage, return the shortest path
+        path_coords = [[G.nodes[node]['y'], G.nodes[node]['x']] for node in shortest_path]
+        return jsonify({"path": path_coords})
+    else:
+        # If there's a blockage, use the shortest path to find an alternative route
+        updated_path = implement_blockage(source_node, destination_node, shortest_path)
+        # Ensure that implement_blockage returns the updated path correctly
+        if updated_path is None:
+            # Handle case where no alternate path exists
+            return jsonify({"error": "No alternate path exists"}), 400
+        path_coords = [[G.nodes[node]['y'], G.nodes[node]['x']] for node in updated_path]
+        return jsonify({"path": path_coords})
 
-    cur_shortest_path = get_shortest_path(source_osm_id, dest_osm_id)
-    print(f"The route of the shortest path is {cur_shortest_path}")
 
-    # visualize cur_shortest_path
-    fig, ax = ox.plot_graph_route(G, cur_shortest_path, route_color='b',
-                                  route_linewidth=6, node_size=0)
-
-    # If button "Report blockage on route, give new route" is pushed,
-    # run blockage function
-    blockage_value = True  # based on if user presses the button
-
-    updated_path_after_blockage = None
-    if blockage_value:
-        updated_path_after_blockage = implement_blockage(source_osm_id,
-                                                         dest_osm_id,
-                                                         cur_shortest_path)
-        if updated_path_after_blockage == None:
-            print("No possible path between locations due to blockage.")
-        else:
-            print(f"Updated route after blockage is"
-                  f" {updated_path_after_blockage}")
-            # Visualize new shortest path after blockage
-            fig, ax = ox.plot_graph_route(G, updated_path_after_blockage,
-                                          route_color='r', route_linewidth=6,
-                                          node_size=0)
-
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    app.run(debug=True)
