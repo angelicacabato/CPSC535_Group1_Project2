@@ -254,6 +254,12 @@
         const destination = cafeLocations[destinationName];
 
         showLoadingSpinner(true); // Show spinner
+
+        if (sourceName === destinationName) {
+            alert("Please select a different destination.");
+            showLoadingSpinner(false); // Hide spinner since we're not proceeding
+            return; // Exit the function without making the request
+        }
         
         if (source && destination) {
             fetch('/calculate_path', {
@@ -314,6 +320,12 @@ document.getElementById('report-blockage').addEventListener('click', function() 
 
         showLoadingSpinner(true); // Show spinner
         
+        if (sourceName === destinationName) {
+            alert("Please report valid blockage");
+            showLoadingSpinner(false); // Hide spinner since we're not proceeding
+            return; // Exit the function without making the request
+        }
+
         // Set blockage to true when sending the request
         fetch('/calculate_path', {
             method: 'POST',

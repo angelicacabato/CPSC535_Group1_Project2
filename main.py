@@ -44,6 +44,10 @@ def index():
     # Render the HTML interface
     return render_template('index.html')
 
+@app.route('/about')
+def about():
+    return render_template('about.html')
+
 @app.route('/get_cafes', methods=['GET'])
 def get_cafes():
     # Return a list of cafes for populating the dropdowns
