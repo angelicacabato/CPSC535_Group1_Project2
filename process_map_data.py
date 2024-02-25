@@ -35,9 +35,10 @@ cafe_dict = {}
 updated_nodes = []
 updated_edges = []
 G = []
-next = []
+next_path = []
 build_coffe_graph = []
 shortest_path_blockages = []
+final_nodes = []
 
 def buildmap():
     # Define the place you are interested in (you can customize this)
@@ -46,17 +47,90 @@ def buildmap():
     G = ox.graph_from_place(place, network_type="drive", simplify=True)
     num_vertices = len(G.nodes)
     print(f"num vertices ", num_vertices)
+        # Fetch features (geometries) for cafes in the specified place
+    cafes_geometries = ox.features_from_place(place, tags={"amenity": ["cafe", "coffee_shop"]})
+    # Get the coffe nodes in G
+    cafe_nodes = []
+    my_dict = dict() # restore name of osmID node
+    for cafe_geometry in cafes_geometries.itertuples():
+        cafe_name = getattr(cafe_geometry, 'name', None)
+        centroid_x, centroid_y = cafe_geometry.geometry.centroid.xy
+        nearest_node = ox.distance.nearest_nodes(G, centroid_x[0], centroid_y[0])
+        if not pd.isna(cafe_name):
+            cafe_nodes.append(nearest_node) # osmId
+            my_dict[nearest_node] = cafe_name
 
-    nodes_to_keep = list(G.nodes)[:10]
-    subgraph = G.subgraph(nodes_to_keep)
+    # Create a temporary graph containing only the cafe nodes and their edges
+    cafe_subgraph = G.subgraph(cafe_nodes)
+    newInitializeDistMatrix(cafe_subgraph, G)
 
-    for node in nodes_to_keep:
-        print(f"node {node}")
-        for edge in subgraph.edges(node, data=True):
-            print(f"Edge: {edge}")
+def newInitializeDistMatrix(cafe_subgraph, G):
+    global index_mapping, next_path, final_nodes
+    global final_dist, build_coffe_graph
+    index_mapping = {convert_index: i for i, convert_index in enumerate(cafe_subgraph.nodes)} # osmId, matrix_id
+    swapped_index_mapping = {value: key for key, value in index_mapping.items()} # matrix_id, osmId
+    num_vertices = len(cafe_subgraph.nodes)
+
+    for row in range(num_vertices):
+        origin_source = swapped_index_mapping[row] # osmid
+        for col in range(num_vertices):
+            origin_dest = swapped_index_mapping[col] # osmid
+            # can manually find any path between 2 nodes based on G - like collecting data
+            # Whenever using the simple path => after all, need to rebuild the new graph
+            # to plot. Now just make life easier to use the built-in function
+            any_path = nx.shortest_path(G, origin_source, origin_dest, weight='length')
+            if len(any_path) > 1:
+                final_nodes += any_path
+
+    # prepared for a connected graph based on cafe locations and their related nodes
+    final_nodes = list(dict.fromkeys(final_nodes))
+    num_vertices = len(final_nodes)
+    # print(f"final_nodes {final_nodes}")
+    # print(f"num vertices {num_vertices}")
+
+    dist = [[np.inf] * num_vertices for _ in range(num_vertices)]
+    next_path = [[-1] * num_vertices for _ in range(num_vertices)]
+    for i in range(num_vertices):
+        dist[i][i] = 0 # Set diagonal elements to 0
+
+    for row in range(num_vertices):
+        origin_source = final_nodes[row] # osmid
+        for col in range(num_vertices):
+            origin_dest = final_nodes[col] # osmid
+            if row != col:
+                if G.has_edge(origin_source, origin_dest):
+                    edge_data = G[origin_source][origin_dest]
+                    length = edge_data[0].get('length', np.inf)
+                    dist[row][col] = length
+                    next_path[row][col] = col
+
+    print(f"dist {dist}")
+    #printMatrix(dist, num_vertices)
+
+    final_dist, next_path = floyd_warshallblockages(dist, next_path)
+    print(f"dist {final_dist}")
+    return
+
+def new_get_shortest_path(osmOrginID, osmDestID):
+    global index_mapping, G, build_coffe_graph, shortest_path_blockages
+    global final_dist, next_path, final_nodes
+    start = final_nodes.index(osmOrginID)
+    end = final_nodes.index(osmDestID)
+
+    if (next_path[start][end] == -1):
+        return {}
     
+    path = [start]
+    while (start != end):
+        start = next_path[start][end]
+        path.append(start)
     
+    for i in range(len(path)):
+        path[i] = final_nodes[path[i]]
 
+    print(f"path {path}")
+    ox.plot_graph_route(G, path, route_color='r', route_linewidth=6, node_size=0, bgcolor='k')
+#################################################################################################################
 def process_map_data():
     # pull map data of Fullerton, CA
     global G
@@ -84,13 +158,13 @@ def process_map_data():
 
 # collect distance data for all coffe locations
 def initializeDistMatrix(cafe_subgraph, G):
-    global index_mapping, next
+    global index_mapping, next_path
     global final_dist, build_coffe_graph
     index_mapping = {convert_index: i for i, convert_index in enumerate(cafe_subgraph.nodes)} # osmId, matrix_id
     swapped_index_mapping = {value: key for key, value in index_mapping.items()} # matrix_id, osmId
     num_vertices = len(cafe_subgraph.nodes)
     dist = [[np.inf] * num_vertices for _ in range(num_vertices)]
-    next = [[-1] * num_vertices for _ in range(num_vertices)]
+    next_path = [[-1] * num_vertices for _ in range(num_vertices)]
     for i in range(num_vertices):
         dist[i][i] = 0 # Set diagonal elements to 0
 
@@ -100,7 +174,7 @@ def initializeDistMatrix(cafe_subgraph, G):
             origin_dest = swapped_index_mapping[col] # osmid
             shortest_path_len = nx.shortest_path_length(G, origin_source, origin_dest, weight='length')
             dist[row][col] = shortest_path_len
-            next[row][col] = col
+            next_path[row][col] = col
 
     #printMatrix(dist, num_vertices)
     build_coffe_graph = buildgraphBasedonInitialDist(dist)
@@ -108,7 +182,7 @@ def initializeDistMatrix(cafe_subgraph, G):
         build_coffe_graph.graph['crs'] = 'EPSG:4326'
 
     #print(f"coffe graph ", build_coffe_graph)
-    final_dist, next = floyd_warshall(build_coffe_graph, next, index_mapping)
+    final_dist, next_path = floyd_warshall(build_coffe_graph, next_path, index_mapping)
     # nx.draw(build_graph, with_labels=True, font_weight='bold', arrows=True)
     # plt.show()
 
@@ -153,24 +227,25 @@ def printCoffeLocationInfo(cafe_subgraph, my_dict):
 def get_shortest_path_builtin(osmOrginID, osmDestID):
     global G, index_mapping
     shortest_path = nx.shortest_path(G, osmOrginID, osmDestID, weight='length')
+    print(f"path from built-in {shortest_path}")
     ox.plot_graph_route(G, shortest_path, route_color='r', route_linewidth=6, node_size=0, bgcolor='k')
 
 def get_shortest_path(osmOrginID, osmDestID):
     global index_mapping, G, build_coffe_graph, shortest_path_blockages
     swapped_index_mapping = {value: key for key, value in index_mapping.items()} # matrix_id, osmId
-    global final_dist, next
+    global final_dist, next_path
     start = index_mapping[osmOrginID]
     end = index_mapping[osmDestID]
 
     #print(f"start ", start)
     #print(f"end ", end)
 
-    if (next[start][end] == -1):
+    if (next_path[start][end] == -1):
         return {}
     
     path = [start]
     while (start != end):
-        start = next[start][end]
+        start = next_path[start][end]
         path.append(start)
 
     shortest_path_nodes = [swapped_index_mapping[index] for index in path]
@@ -208,7 +283,7 @@ def getpath(startindex, endindex, nextmatrix):
     return path
 
 def simulate_blockages(blockages, index_mapping):
-    global final_dist, next
+    global final_dist, next_path
     for blockage in blockages:
         source, destination = blockage  # osmID
         source_index = index_mapping[source]
@@ -219,7 +294,7 @@ def simulate_blockages(blockages, index_mapping):
         final_dist[dest_index][source_index] = float('inf')  # If undirected graph
 
     # Re-run Floyd-Warshall to update the distance matrix with blockages
-    final_dist, next = floyd_warshallblockages(final_dist, next)
+    final_dist, next_path = floyd_warshallblockages(final_dist, next_path)
 """
 def draw_updated_path(G, start_osm_id, end_osm_id, index_mapping, next_matrix):
     # Get the indexes for the start and end nodes
@@ -235,13 +310,13 @@ def draw_updated_path(G, start_osm_id, end_osm_id, index_mapping, next_matrix):
 """
 def updateDictforBlockages(blockages):
     global index_mapping
-    global final_dist, next
+    global final_dist, next_path
     simulate_blockages(blockages, index_mapping)
 
     return
 
 def simulate_blockages(blockages, index_mapping):
-    global final_dist, next
+    global final_dist, next_path
     global shortest_path_blockages
     for blockage in blockages:
         source, destination = blockage #osmID
@@ -261,7 +336,7 @@ def simulate_blockages(blockages, index_mapping):
         #     final_dist[source_index][dest_index] = float('inf')  # simulate blockage
 
     # rerun floyd-warshall algo to update dist matrix
-    final_dist, next = floyd_warshallblockages(final_dist, next)
+    final_dist, next_path = floyd_warshallblockages(final_dist, next_path)
 
 def implement_blockage(source_osm_id, dest_osm_id, cur_shortest_path):
     global index_mapping

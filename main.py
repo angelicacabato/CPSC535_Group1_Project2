@@ -1,7 +1,7 @@
 from flask import Flask, jsonify, request, render_template
 import networkx as nx
 import osmnx as ox
-from process_map_data import (process_map_data, get_shortest_path, implement_blockage)
+from process_map_data import (buildmap, get_shortest_path_builtin, new_get_shortest_path, process_map_data, get_shortest_path, implement_blockage)
 
 app = Flask(__name__)
 
@@ -55,6 +55,7 @@ def get_cafes():
     return jsonify({"cafes": cafes})
 
 @app.route('/calculate_path', methods=['POST'])
+
 def calculate_path():
     data = request.json
     source_name = data['source']
@@ -82,6 +83,11 @@ def calculate_path():
         path_coords = [[G.nodes[node]['y'], G.nodes[node]['x']] for node in updated_path]
         return jsonify({"path": path_coords})
 
+def main():
+    buildmap()
+    new_get_shortest_path(1391863431, 122757243)
+    get_shortest_path_builtin(1391863431, 122757243)
 
 if __name__ == '__main__':
+    main()
     app.run(debug=True)

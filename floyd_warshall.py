@@ -45,7 +45,7 @@ def floyd_warshall(graph, next, index_mapping):
 def floyd_warshallblockages(dist, next):
     num_vertices = len(dist)
 
-    checkInf(dist)
+    #checkInf(dist)
 
     for k in range(num_vertices):
         for i in range(num_vertices):
